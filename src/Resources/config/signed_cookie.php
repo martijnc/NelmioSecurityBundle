@@ -12,6 +12,8 @@ declare(strict_types=1);
  */
 
 use Nelmio\SecurityBundle\EventListener\SignedCookieListener;
+use Nelmio\SecurityBundle\SignedCookie\SignableCookieChecker;
+use Nelmio\SecurityBundle\SignedCookie\SignableCookieCheckerInterface;
 use Nelmio\SecurityBundle\Signer;
 use Nelmio\SecurityBundle\Signer\SignerInterface;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
@@ -23,7 +25,7 @@ return static function (ContainerConfigurator $containerConfigurator): void {
         ->set('nelmio_security.signed_cookie_listener', SignedCookieListener::class)
             ->args([
                 new ReferenceConfigurator('nelmio_security.signer'),
-                '%nelmio_security.signed_cookie.names%',
+                new ReferenceConfigurator('nelmio_security.signable_cookie_checker'),
             ])
             ->tag('kernel.event_listener', [
                 'event' => 'kernel.request',
@@ -45,5 +47,12 @@ return static function (ContainerConfigurator $containerConfigurator): void {
             ])
 
         ->alias(SignerInterface::class, 'nelmio_security.signer')
+
+        ->set('nelmio_security.signable_cookie_checker', SignableCookieChecker::class)
+            ->args([
+                '%nelmio_security.signed_cookie.names%',
+            ])
+
+        ->alias(SignableCookieCheckerInterface::class, 'nelmio_security.signable_cookie_checker')
     ;
 };

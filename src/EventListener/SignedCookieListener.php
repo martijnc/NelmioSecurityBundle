@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Nelmio\SecurityBundle\EventListener;
 
+use Nelmio\SecurityBundle\SignedCookie\SignableCookieChecker;
+use Nelmio\SecurityBundle\SignedCookie\SignableCookieCheckerInterface;
 use Nelmio\SecurityBundle\Signer\SignerInterface;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
@@ -22,21 +24,27 @@ final class SignedCookieListener
 {
     private SignerInterface $signer;
 
-    /**
-     * @var list<string>|true
-     */
-    private $signedCookieNames;
+    private SignableCookieCheckerInterface $signableCookieChecker;
 
     /**
-     * @param list<string> $signedCookieNames
+     * @param list<string>|SignableCookieCheckerInterface $signableCookieChecker
      */
-    public function __construct(SignerInterface $signer, array $signedCookieNames)
+    public function __construct(SignerInterface $signer, $signableCookieChecker)
     {
         $this->signer = $signer;
-        if (\in_array('*', $signedCookieNames, true)) {
-            $this->signedCookieNames = true;
+
+        if ($signableCookieChecker instanceof SignableCookieCheckerInterface) {
+            $this->signableCookieChecker = $signableCookieChecker;
+        } elseif (\is_array($signableCookieChecker)) {
+            $this->signableCookieChecker = new SignableCookieChecker($signableCookieChecker);
+            trigger_deprecation(
+                'nelmio/security-bundle',
+                '3.5',
+                'Passing an array with cookie names to the %s constructor is deprecated. Pass `SignableCookieCheckerInterface` instead.',
+                self::class
+            );
         } else {
-            $this->signedCookieNames = $signedCookieNames;
+            throw new \InvalidArgumentException(sprintf('The %s constructor expects a `SignableCookieCheckerInterface` or array', self::class));
         }
     }
 
@@ -48,15 +56,20 @@ final class SignedCookieListener
 
         $request = $e->getRequest();
 
-        $names = true === $this->signedCookieNames ? $request->cookies->keys() : $this->signedCookieNames;
-        foreach ($names as $name) {
-            if ($request->cookies->has($name)) {
-                $cookie = $request->cookies->get($name);
-                if ($this->signer->verifySignedValue($cookie)) {
-                    $request->cookies->set($name, $this->signer->getVerifiedRawValue($cookie));
-                } else {
-                    $request->cookies->remove($name);
-                }
+        foreach ($request->cookies->keys() as $name) {
+            if (!$this->signableCookieChecker->isSignableCookie($name)) {
+                continue;
+            }
+
+            $cookie = $request->cookies->get($name);
+            if (null === $cookie) {
+                continue;
+            }
+
+            if ($this->signer->verifySignedValue($cookie)) {
+                $request->cookies->set($name, $this->signer->getVerifiedRawValue($cookie));
+            } else {
+                $request->cookies->remove($name);
             }
         }
     }
@@ -70,21 +83,23 @@ final class SignedCookieListener
         $response = $e->getResponse();
 
         foreach ($response->headers->getCookies() as $cookie) {
-            if (true === $this->signedCookieNames || \in_array($cookie->getName(), $this->signedCookieNames, true)) {
-                $response->headers->removeCookie($cookie->getName(), $cookie->getPath(), $cookie->getDomain());
-                $signedCookie = new Cookie(
-                    $cookie->getName(),
-                    $this->signer->getSignedValue((string) $cookie->getValue()),
-                    $cookie->getExpiresTime(),
-                    $cookie->getPath(),
-                    $cookie->getDomain(),
-                    $cookie->isSecure(),
-                    $cookie->isHttpOnly(),
-                    $cookie->isRaw(),
-                    $cookie->getSameSite()
-                );
-                $response->headers->setCookie($signedCookie);
+            if (!$this->signableCookieChecker->isSignableCookie($cookie->getName())) {
+                continue;
             }
+
+            $response->headers->removeCookie($cookie->getName(), $cookie->getPath(), $cookie->getDomain());
+            $signedCookie = new Cookie(
+                $cookie->getName(),
+                $this->signer->getSignedValue((string) $cookie->getValue()),
+                $cookie->getExpiresTime(),
+                $cookie->getPath(),
+                $cookie->getDomain(),
+                $cookie->isSecure(),
+                $cookie->isHttpOnly(),
+                $cookie->isRaw(),
+                $cookie->getSameSite()
+            );
+            $response->headers->setCookie($signedCookie);
         }
     }
 }

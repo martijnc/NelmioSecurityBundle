@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Nelmio\SecurityBundle\Tests\Listener;
 
 use Nelmio\SecurityBundle\EventListener\SignedCookieListener;
+use Nelmio\SecurityBundle\SignedCookie\SignableCookieChecker;
 use Nelmio\SecurityBundle\Signer;
 use PHPUnit\Framework\MockObject\Stub;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -46,7 +47,7 @@ class SignedCookieListenerTest extends ListenerTestCase
      */
     public function testCookieReading(array $signedCookieNames, array $inputCookies, array $expectedCookies): void
     {
-        $listener = new SignedCookieListener($this->signer, $signedCookieNames);
+        $listener = new SignedCookieListener($this->signer, new SignableCookieChecker($signedCookieNames));
         $request = Request::create('/', 'GET', [], $inputCookies);
 
         $event = $this->createRequestEventWithKernel($this->kernel, $request, true);
@@ -57,6 +58,8 @@ class SignedCookieListenerTest extends ListenerTestCase
 
     public function provideCookieReading(): array
     {
+        $sessionName = session_name();
+
         return [
             [[], [], []],
             [[], ['foo' => 'bar'], ['foo' => 'bar']],
@@ -67,6 +70,7 @@ class SignedCookieListenerTest extends ListenerTestCase
             [['*'], ['foo' => '.25af6174a0fcecc4d346680a72b7ce644b9a88e8'], ['foo' => '']],
             [['*'], ['legacy' => 'bar.d42bb85e6f20b90034d986ad68501a2d'], ['legacy' => 'bar']],
             [['*'], ['legacy' => 'bar.d42bb85e6f20b90034d986ad68501a2a'], []],
+            [['*'], [$sessionName => 'bar'], [$sessionName => 'bar']],
         ];
     }
 
@@ -79,7 +83,7 @@ class SignedCookieListenerTest extends ListenerTestCase
      */
     public function testCookieWriting(array $signedCookieNames, array $inputCookies, array $expectedCookies): void
     {
-        $listener = new SignedCookieListener($this->signer, $signedCookieNames);
+        $listener = new SignedCookieListener($this->signer, new SignableCookieChecker($signedCookieNames));
         $request = Request::create('/');
 
         $response = new Response();
@@ -100,18 +104,22 @@ class SignedCookieListenerTest extends ListenerTestCase
 
     public function provideCookieWriting(): array
     {
+        $sessionName = session_name();
+
         return [
             [[], [], []],
             [[], ['foo' => 'bar'], ['foo' => 'bar']],
             [['foo'], ['foo' => 'bar'], ['foo' => 'bar.ca3756f81d3728a023bdc8a622c0906f373b795e']],
             [['*'], ['foo' => 'bar'], ['foo' => 'bar.ca3756f81d3728a023bdc8a622c0906f373b795e']],
             [['*'], ['foo' => null], ['foo' => '.25af6174a0fcecc4d346680a72b7ce644b9a88e8']],
+            [['*'], [$sessionName => 'bar'], [$sessionName => 'bar']],
+            [['*', $sessionName], [$sessionName => 'bar'], [$sessionName => 'bar.ca3756f81d3728a023bdc8a622c0906f373b795e']],
         ];
     }
 
     public function testCookieReadingSkipsSubReqs(): void
     {
-        $listener = new SignedCookieListener($this->signer, ['*']);
+        $listener = new SignedCookieListener($this->signer, new SignableCookieChecker(['*']));
         $request = Request::create('/', 'GET', [], ['foo' => 'bar']);
 
         $event = $this->createRequestEventWithKernel($this->kernel, $request, false);
@@ -122,7 +130,7 @@ class SignedCookieListenerTest extends ListenerTestCase
 
     public function testCookieWritingSkipsSubReqs(): void
     {
-        $listener = new SignedCookieListener($this->signer, ['*']);
+        $listener = new SignedCookieListener($this->signer, new SignableCookieChecker(['*']));
         $request = Request::create('/');
 
         $response = new Response();

@@ -484,7 +484,8 @@ down your app and increase bandwidth usage for your users.
             names: [test1, test2]
 
 However, for simplicity reasons, and to start with a high security and optimize
-later, you can specify ``*`` as a cookie name to have all cookies signed automatically.
+later, you can specify ``*`` as a cookie name to have all cookies signed automatically. By default ``*`` excludes the
+session cookie because it is known to cause issues. You can still sign the session cookie by explicitly listing it here.
 
 .. code-block:: yaml
 
@@ -507,10 +508,10 @@ Upgrading the Hash Algorithm
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 With advancements in computational power and security research, upgrading to more secure hashing algorithms is
-essential for maintaining application security. However, simply changing the `hash_algo` value could break existing
-cookies. To facilitate a smooth transition, this bundle offers a `legacy_hash_algo` option. If your application
-currently uses `sha-256` and you wish to upgrade to the more secure `sha3-256` algorithm, set `legacy_hash_algo`
-to `sha256` and `hash_algo` to `sha3-256`.
+essential for maintaining application security. However, simply changing the ``hash_algo`` value could break existing
+cookies. To facilitate a smooth transition, this bundle offers a ``legacy_hash_algo`` option. If your application
+currently uses ``sha-256`` and you wish to upgrade to the more secure ``sha3-256`` algorithm, set ``legacy_hash_algo``
+to ``sha256`` and ``hash_algo`` to ``sha3-256``.
 
 .. code-block:: yaml
 
@@ -522,7 +523,7 @@ to `sha256` and `hash_algo` to `sha3-256`.
 
 .. caution::
 
-    The `legacy_hash_algo` option can expose your application to downgrade attacks and should only be used temporarily
+    The ``legacy_hash_algo`` option can expose your application to downgrade attacks and should only be used temporarily
     for backward compatibility.
 
 Clickjacking Protection
