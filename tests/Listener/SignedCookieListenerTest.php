@@ -71,6 +71,7 @@ class SignedCookieListenerTest extends ListenerTestCase
             [['*'], ['legacy' => 'bar.d42bb85e6f20b90034d986ad68501a2d'], ['legacy' => 'bar']],
             [['*'], ['legacy' => 'bar.d42bb85e6f20b90034d986ad68501a2a'], []],
             [['*'], [$sessionName => 'bar'], [$sessionName => 'bar']],
+            [['*'], [$sessionName => 'bar.ca3756f81d3728a023bdc8a622c0906f373b795e'], [$sessionName => 'bar']],
         ];
     }
 

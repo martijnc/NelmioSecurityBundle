@@ -57,11 +57,11 @@ final class SignedCookieListener
         $request = $e->getRequest();
 
         foreach ($request->cookies->keys() as $name) {
-            if (!$this->signableCookieChecker->isSignableCookie($name)) {
+            $cookie = $request->cookies->get($name);
+            if (!$this->signableCookieChecker->isSignableCookie($name) && !$this->isSignedSessionCookie($name, $cookie)) {
                 continue;
             }
 
-            $cookie = $request->cookies->get($name);
             if (null === $cookie) {
                 continue;
             }
@@ -101,5 +101,17 @@ final class SignedCookieListener
             );
             $response->headers->setCookie($signedCookie);
         }
+    }
+
+    /**
+     * Check for pre 3.5 signed session cookies. To be removed in 4.0.
+     */
+    private function isSignedSessionCookie(string $name, ?string $value): bool
+    {
+        if ($name !== session_name() || null === $value) {
+            return false;
+        }
+
+        return $this->signer->verifySignedValue($value);
     }
 }
